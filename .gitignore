@@ -1,2 +1,5 @@
 build/
 .kas_shell_history
+meta-*/
+!meta-myproject/
+poky/

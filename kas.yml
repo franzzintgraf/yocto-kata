@@ -21,6 +21,20 @@ repos:
     layers:
       .:
 
+  meta-openembedded:
+    url: "https://github.com/openembedded/meta-openembedded"
+    branch: "dunfell"
+    layers:
+      meta-oe:
+      meta-python:
+      meta-networking:
+
+  meta-iot-cloud:
+    url: "https://github.com/intel-iot-devkit/meta-iot-cloud"
+    branch: "dunfell"
+    layers:
+      .:
+
   meta-myproject:
     path: "meta-myproject"
     layers:
@@ -30,4 +44,5 @@ local_conf_header:
   meta-myproject: |
     IMAGE_FSTYPES += "wic.bz2"
     ENABLE_UART = "1"
-    IMAGE_INSTALL:append = " hello oldstyle"
+    IMAGE_INSTALL:append = " hello oldstyle azure-iot-dummy-cli azure-iot-sdk-c"
+    EXTRA_IMAGE_FEATURES += "debug-tweaks"

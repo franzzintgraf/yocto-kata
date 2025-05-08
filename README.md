@@ -10,7 +10,7 @@ The goal of this project is to:
 
 - Learn Yocto by doing — using a kata-style structured approach
 - Build a minimal but extensible Linux image for the Raspberry Pi 4
-- Integrate a real-world IoT telemetry application (Azure IoT + BME280)
+- Integrate a real-world IoT telemetry application (Azure IoT)
 - Use best practices for maintainability, reproducibility, and versioning
 - Prepare for kernel and Yocto upgrades through legacy testing and migration
 
@@ -41,8 +41,6 @@ The kata documents walk you through:
 - **Yocto** — Custom Linux build system
 - **BitBake** — Yocto's task executor
 - **kas** — Configuration and build automation
-- **Azure IoT SDK** — For cloud telemetry
-- **BME280 sensor** — Provides temperature & humidity readings via I2C
 
 ---
 
@@ -61,8 +59,10 @@ kas build kas.yml
 ✅ Custom layer and recipes  
 ✅ Legacy recipe for migration  
 ✅ Configuration and build automation with `kas`  
-🕐 IoT app and Azure integration — planned  
-🕐 Kernel version update — planned
+✅ IoT app and Azure integration  
+🕐 Custom Image Recipe(s) — planned  
+🕐 Apply a kernel patch — planned  
+🕐 Kernel version update — planned  
 
 ---
 

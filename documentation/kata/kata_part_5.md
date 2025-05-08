@@ -353,3 +353,7 @@ bitbake core-image-minimal -c clean
 | Project structure | Cleaned up, maintainable, and shareable |
 
 ---
+
+In the next part, we’ll add a tiny IoT application using the **Azure IoT SDK** to our image.
+
+→ Continue to: [kata_part_6.md](kata_part_6.md)

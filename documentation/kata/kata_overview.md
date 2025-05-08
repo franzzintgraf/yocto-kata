@@ -23,11 +23,15 @@ Write a recipe using deprecated syntax to prepare for testing migration paths wh
 ### 🔹 [Part 5: Restructuring with kas](kata_part_5.md)
 Convert your manually configured project to a fully automated, reproducible setup using `kas`. Learn about `kas.yml` and why it’s a best practice.
 
+### 🔹 [Part 6: IoT app and Azure integration](kata_part_6.md)
+Integrate a real-world IoT application using the Azure IoT SDK. Build and run the application on your Raspberry Pi.
+
 ---
 
 ## 🛠️ Coming Next
 
-- Integrate real-world IoT application using Azure IoT SDK layer and example application
+- Custom Image Recipe(s)
+- Apply a Kernel Patch
 - Preparing for Kernel and Yocto Version Migration
 
 ---
