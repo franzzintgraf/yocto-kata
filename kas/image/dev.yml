@@ -1,0 +1,8 @@
+header:
+  version: 18
+
+target: myproject-image-dev
+
+local_conf_header:
+  dev_enable_uart: |
+    ENABLE_UART = "1"

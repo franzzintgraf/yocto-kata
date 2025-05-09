@@ -1,0 +1,9 @@
+header:
+  version: 18
+
+machine: raspberrypi4
+
+local_conf_header:
+  rpi4_defaults: |
+    IMAGE_FSTYPES += "wic.bz2"
+    ENABLE_UART ??= "0"

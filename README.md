@@ -48,7 +48,7 @@ The kata documents walk you through:
 
 ```bash
 pip3 install kas
-kas build kas.yml
+kas build kas.yml:kas/image/dev.yml:kas/machine/rpi4.yml
 ```
 
 ---
@@ -60,7 +60,7 @@ kas build kas.yml
 ✅ Legacy recipe for migration  
 ✅ Configuration and build automation with `kas`  
 ✅ IoT app and Azure integration  
-🕐 Custom Image Recipe(s) — planned  
+✅ Custom Image Recipe(s)  
 🕐 Apply a kernel patch — planned  
 🕐 Kernel version update — planned  
 

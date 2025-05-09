@@ -181,3 +181,9 @@ You now have:
 - A real C++ app integrated with the Azure IoT SDK
 - A fully automated build that includes the SDK and app
 - Insight into real-world Yocto development with external layers
+
+---
+
+In the next part, we’ll learn how to create custom image(s) and how to build them with a restructured kas setup.
+
+→ Continue to: [kata_part_7.md](kata_part_7.md)

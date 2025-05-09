@@ -26,11 +26,13 @@ Convert your manually configured project to a fully automated, reproducible setu
 ### 🔹 [Part 6: IoT app and Azure integration](kata_part_6.md)
 Integrate a real-world IoT application using the Azure IoT SDK. Build and run the application on your Raspberry Pi.
 
+### 🔹 [Part 7: Custom Images](kata_part_7.md)
+Create custom images (dev/prod) for your project and parametrize them with `kas`.
+
 ---
 
 ## 🛠️ Coming Next
 
-- Custom Image Recipe(s)
 - Apply a Kernel Patch
 - Preparing for Kernel and Yocto Version Migration
 

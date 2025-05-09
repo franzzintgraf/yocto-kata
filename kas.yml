@@ -1,9 +1,7 @@
 header:
   version: 18
 
-machine: raspberrypi4
 distro: poky
-target: core-image-minimal
 build_system: oe
 
 repos:
@@ -39,10 +37,3 @@ repos:
     path: "meta-myproject"
     layers:
       .:
-
-local_conf_header:
-  meta-myproject: |
-    IMAGE_FSTYPES += "wic.bz2"
-    ENABLE_UART = "1"
-    IMAGE_INSTALL:append = " hello oldstyle azure-iot-dummy-cli azure-iot-sdk-c"
-    EXTRA_IMAGE_FEATURES += "debug-tweaks"

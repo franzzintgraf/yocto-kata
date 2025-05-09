@@ -1,0 +1,8 @@
+header:
+  version: 18
+
+target: myproject-image-prod
+
+local_conf_header:
+  prod_disable_uart: |
+    ENABLE_UART = "0"
