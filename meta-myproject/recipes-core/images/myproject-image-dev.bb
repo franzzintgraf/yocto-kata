@@ -10,4 +10,5 @@ IMAGE_INSTALL += " \
     hello \
     oldstyle \
     azure-iot-dummy-cli \
+    hello-world-cpp \
 "

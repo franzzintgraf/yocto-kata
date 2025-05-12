@@ -61,6 +61,7 @@ kas build kas.yml:kas/image/dev.yml:kas/machine/rpi4.yml
 ✅ Configuration and build automation with `kas`  
 ✅ IoT app and Azure integration  
 ✅ Custom Image Recipe(s)  
+✅ Patching recipe(s) using `devtool`  
 🕐 Apply a kernel patch — planned  
 🕐 Kernel version update — planned  
 

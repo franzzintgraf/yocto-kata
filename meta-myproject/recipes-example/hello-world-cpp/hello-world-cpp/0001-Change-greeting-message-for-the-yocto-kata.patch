@@ -1,0 +1,21 @@
+From 16c95c59fcad9438f467ed671398f3754c1aa8bc Mon Sep 17 00:00:00 2001
+From: kas User <kas@example.com>
+Date: Mon, 12 May 2025 13:46:11 +0200
+Subject: [PATCH] Change greeting message for the yocto kata
+
+---
+ src/main.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/main.cpp b/src/main.cpp
+index bc8f460..31bd38d 100644
+--- a/src/main.cpp
++++ b/src/main.cpp
+@@ -1,6 +1,6 @@
+ #include <iostream>
+ 
+ int main() {
+-    std::cout << "Hello, World!" << std::endl;
++    std::cout << "Hello, World! I'm from the yocto kata!" << std::endl;
+     return 0;
+ }

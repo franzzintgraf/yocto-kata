@@ -29,6 +29,9 @@ Integrate a real-world IoT application using the Azure IoT SDK. Build and run th
 ### 🔹 [Part 7: Custom Images](kata_part_7.md)
 Create custom images (dev/prod) for your project and parametrize them with `kas`.
 
+### 🔹 [Part 8: Patching the source for a recipe](kata_part_8.md)
+Learn how to apply patches to recipes using the `devtool`
+
 ---
 
 ## 🛠️ Coming Next

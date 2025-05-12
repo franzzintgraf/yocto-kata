@@ -33,6 +33,12 @@ repos:
     layers:
       .:
 
+  meta-yocto-examples:
+    url: "https://github.com/franzzintgraf/meta-yocto-examples.git"
+    branch: "dunfell"
+    layers:
+      .:
+
   meta-myproject:
     path: "meta-myproject"
     layers:
