@@ -32,11 +32,13 @@ Create custom images (dev/prod) for your project and parametrize them with `kas`
 ### 🔹 [Part 8: Patching the source for a recipe](kata_part_8.md)
 Learn how to apply patches to recipes using the `devtool`
 
+### 🔹 [Part 9: Patching a Linux Kernel CVE](kata_part_9.md)
+Learn how to list all CVEs in the kernel and how to patch one CVE in our Linux kernel.
+
 ---
 
 ## 🛠️ Coming Next
 
-- Apply a Kernel Patch
 - Preparing for Kernel and Yocto Version Migration
 
 ---

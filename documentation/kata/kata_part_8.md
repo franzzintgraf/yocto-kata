@@ -229,3 +229,7 @@ The patch includes metadata:
 - How to version-control patches in your own layer
 
 ---
+
+In the next part, we’ll learn how to list known CVEs and create a patch for one.
+
+→ Continue to: [kata_part_9.md](kata_part_9.md)

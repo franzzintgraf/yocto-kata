@@ -240,3 +240,9 @@ You now have:
 - A dev image for local testing with debugging features
 - A production image for release with minimal footprint
 - A clean, modular kas config layout
+
+---
+
+In the next part, we’ll learn how to patch a component using the `devtool`.
+
+→ Continue to: [kata_part_8.md](kata_part_8.md)
