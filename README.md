@@ -57,7 +57,6 @@ kas build kas.yml:kas/image/dev.yml:kas/machine/rpi4.yml
 
 ✅ Core image builds  
 ✅ Custom layer and recipes  
-✅ Legacy recipe for migration  
 ✅ Configuration and build automation with `kas`  
 ✅ IoT app and Azure integration  
 ✅ Custom Image Recipe(s)  

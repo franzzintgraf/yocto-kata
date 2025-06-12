@@ -1,359 +1,189 @@
-# 🧠 Yocto Kata – Part 5: Restructuring the Project Using `kas` for Reproducibility and Maintainability
+# 📦 Kata Part 5: Integrating an Azure IoT Application with meta-iot-cloud
 
-In previous parts, we manually cloned repositories, configured `local.conf` and `bblayers.conf`, and invoked `bitbake` directly to build our image. That worked — but it’s **not scalable**.
-
-Now, in **Part 5**, we’ll restructure the project to use **`kas`**, a powerful configuration tool designed to automate and manage Yocto builds reproducibly.
+In this step, we expand our custom Yocto image by integrating a real application: a simple CLI-based telemetry sender for Azure IoT Hub using the Azure IoT SDK. This is an excellent way to practice using external layers, managing dependencies, and structuring recipes that interact with third-party CMake-based libraries.
 
 ---
 
-## 🎯 Why Restructure with kas?
+## 🎯 Objective
 
-Here’s the issue with the approach we used so far:
-
-| Manual Step | Problem |
-|-------------|---------|
-| Cloning layers manually | Tedious, error-prone, inconsistent |
-| Editing config files | Can drift across environments |
-| Sharing setup | Difficult — others must repeat all steps |
-| Reproducing builds | Nearly impossible without a fixed method |
-| Upgrading versions | Requires manual work and careful coordination |
-
-> The more layers and customization you add, the worse it gets.
-
-This is where `kas` shines.
+- Choose and add a layer that provides the Azure IoT SDK
+- Create a custom application (`azure-iot-dummy-cli`) that links against the SDK
+- Use BitBake features (`DEPENDS`, `RDEPENDS`, `CMake`, `IMAGE_INSTALL`) to build and bundle the app into the root filesystem
+- Troubleshoot issues like missing libraries, include paths, and login access
 
 ---
 
-## 🧰 What Is `kas`?
+## 🔎 Step 1: Find a Suitable Azure Layer
 
-**`kas`** is a tool that provides a YAML-based configuration for:
+We start by searching for "azure" in the official **Yocto Layer Index**:
 
-- Cloning and pinning layer repositories
-- Defining the machine, image, distro
-- Applying config fragments (like `local.conf`)
-- Launching builds and shells
+📍 https://layers.openembedded.org/layerindex/branch/master/recipes/
 
-It simplifies collaboration, reproducibility, CI/CD integration, and upgrades.
-
----
-
-## 🔄 Comparison: kas vs repo
-
-Some teams use **`repo`**, an Android-derived tool for managing Git checkouts. While `repo` is great for large mono-repos, it doesn’t understand Yocto.
-
-### 🔍 Comparison Table
-
-| Feature | `kas` | `repo` |
-|--------|-------|--------|
-| Yocto-native concepts (layers, conf, images) | ✅ Yes | ❌ No |
-| Declarative build config (in YAML) | ✅ Yes | ❌ No |
-| Requires scripting | ❌ Minimal | ✅ Needed |
-| Shared by file | ✅ Single `.yml` file | ✅ Multiple manifest XMLs |
-| Used in Yocto industry projects | ✅ Widely | ✅ In some complex projects |
-| Easy for CI/CD | ✅ Very | ⚠️ Requires glue code |
-
-> 🧠 Conclusion: `repo` is powerful, but `kas` is **better suited for Yocto-based workflows**.
+The result:
+- `meta-iot-cloud` (maintained by Intel IoT DevKit)
+- Provides: `azure-iot-sdk-c`, `uamqp`, etc.
 
 ---
 
-## 🗂️ Project Restructure with kas
+## 📥 Step 2: Add the Layer to Your Project
 
-Here’s how your project structure evolves:
-
-### 🧱 Old Setup
-
-```
-poky/
-├── meta-raspberrypi/
-├── meta-myproject/
-├── rpi-build/
-├── ...
-```
-
-### 🆕 New Setup
-
-```
-yocto-kata/
-├── kas.yml
-├── meta-myproject/
-│   └── recipes-example/
-├── .gitignore
-├── build/            # created by kas automatically
-```
-
-Everything is now **driven by kas.yml**.
-
----
-
-## 🛠️ Step-by-Step: Create Your kas Project
-
-### ✅ Step 1: Install kas
+Clone the layer next to your other repositories (or let `kas` do it for you soon):
 
 ```bash
-pip3 install kas
+git clone -b dunfell https://github.com/intel-iot-devkit/meta-iot-cloud
 ```
 
----
-
-### ✅ Step 2: Create the Project Directory
-
-```bash
-mkdir yocto-rpi-kas
-cd yocto-rpi-kas
-git init
-```
-
-Add your `.gitignore`:
-
-```bash
-echo -e "build/
-downloads/
-sstate-cache/
-tmp/
-*.wic
-*.bz2
-*.bmap" > .gitignore
-```
-
----
-
-### ✅ Step 3: Create kas.yml
+Then add it to `kas.yml`:
 
 ```yaml
-header:
-  version: 18
-machine: raspberrypi4
-target: core-image-minimal
-build_system: oe
-
-repos:
-  poky:
-    url: "https://git.yoctoproject.org/poky"
-    refspec: "dunfell"
-    layers:
-      meta:
-      meta-poky:
-      meta-yocto-bsp:
-
-  meta-raspberrypi:
-    url: "https://git.yoctoproject.org/meta-raspberrypi"
-    refspec: "dunfell"
-    layers:
-      - .
-
-  meta-myproject:
-    path: "meta-myproject"
-    layers:
-      - .
-
-local_conf_header:
-  meta-myproject: |
-    IMAGE_FSTYPES += "wic.bz2"
-    ENABLE_UART = "1"
-    IMAGE_INSTALL:append = " hello oldstyle"
-```
-
-## 📄 Deep Dive: Understanding the `kas.yml` File
-
-The `kas.yml` file is the **heart of your Yocto project configuration** when using `kas`. It defines everything kas needs to:
-
-- Fetch and prepare your sources (layers)
-- Configure your build environment
-- Apply specific customizations
-- Trigger builds reproducibly
-
-Let’s break it down **line by line** using our working example.
-
----
-
-### 🧱 Basic Structure
-
-```yaml
-header:
-  version: 18
-machine: raspberrypi4
-target: core-image-minimal
-build_system: oe
-```
-
-| Field | Explanation |
-|-------|-------------|
-| `header.version` | Required kas config version. `18` is used in kas 4.7. |
-| `machine` | Sets the Yocto machine configuration (`raspberrypi4`). Tells BitBake which kernel, bootloader, and settings to use. |
-| `target` | The image recipe you want to build (`core-image-minimal`). |
-| `build_system` | Tells kas what build system to use (`oe` = OpenEmbedded/Yocto). |
-
----
-
-### 📦 Repos Section
-
-```yaml
-repos:
-  poky:
-    url: "https://git.yoctoproject.org/poky"
-    branch: "dunfell"
-    layers:
-      meta:
-      meta-poky:
-      meta-yocto-bsp:
-```
-
-This defines:
-- A repository (`poky`)
-- Where to clone it from (`url`)
-- Which branch or revision to use (`branch`)
-- Which subdirectories are actual layers (`layers`)
-
-Each repo must list all included layers explicitly.
-
----
-
-### 🧱 Example: meta-raspberrypi
-
-```yaml
-  meta-raspberrypi:
-    url: "https://git.yoctoproject.org/meta-raspberrypi"
+  meta-iot-cloud:
+    url: "https://github.com/intel-iot-devkit/meta-iot-cloud"
     branch: "dunfell"
     layers:
       .:
 ```
 
-This layer is structured differently — the layer lives at the top level of the repo, so we use `.:` as the path.
-
-> Note: `.:` means "use this folder as the layer".
-
 ---
 
-### 🧱 Example: meta-myproject (local layer)
+## 🔗 Step 3: Resolve Layer Dependencies
+
+When building with `bitbake` this will fail due to missing dependencies:
+
+```
+ERROR: Layer 'iot-cloud' depends on layer 'meta-python'
+```
+
+You can have a look into the readme of the layer to see what it depends on. In this case, `meta-iot-cloud` requires `meta-python` and `meta-networking` from `meta-openembedded`. This is a common pattern in Yocto layers, where one layer depends on another for additional functionality or libraries.
+In addition you can look at the `LAYERDEPENDS` declaration in the layer’s `layer.conf` of the `meta-iot-cloud` layer.
+
+To resolve it, we add the required sublayers from `meta-openembedded` to our `kas.yml`:
 
 ```yaml
-  meta-myproject:
-    path: "meta-myproject"
+  meta-openembedded:
+    url: "https://github.com/openembedded/meta-openembedded"
+    branch: "dunfell"
     layers:
-      .:
+      meta-oe:
+      meta-python:
+      meta-networking:
 ```
 
-- `path`: Points to a **local directory** on disk.
-- `layers`: Again, we use `.:` because the layer is at the top level.
-
-No `url` or `branch` is needed for local layers.
+These layers provide common libraries used by many IoT/cloud-related packages.
 
 ---
 
-### 🧩 Configuration Overrides (local_conf_header)
+## 🛠 Step 4: Write the Application Recipe
+
+We add a custom C++ CLI app using the high-level Azure IoT SDK API. It accepts a connection string as a parameter and sends dummy telemetry.
+
+### Directory structure:
+
+```
+meta-myproject/
+└── recipes-example/
+    └── azure-iot-dummy-cli/
+        ├── azure-iot-dummy-cli_0.1.bb
+        └── files/
+            ├── main.cpp
+            └── CMakeLists.txt
+```
+
+### BitBake recipe:
+
+```bitbake
+SUMMARY = "Azure IoT dummy CLI app sending telemetry using connection string"
+DESCRIPTION = "Minimal Azure IoT client using the Azure IoT SDK to send dummy temperature and humidity data"
+LICENSE = "MIT"
+LIC_FILES_CHKSUM = "file://${COREBASE}/meta/files/common-licenses/MIT;md5=0835ade698e0bcf8506ecda2f7b4f302"
+
+SRC_URI = "file://main.cpp \
+           file://CMakeLists.txt"
+
+S = "${WORKDIR}"
+
+inherit cmake pkgconfig
+
+DEPENDS = "azure-iot-sdk-c"
+RDEPENDS:${PN} += " azure-iot-sdk-c"
+
+do_install() {
+    install -d ${D}${bindir}
+    install -m 0755 ${B}/azure-iot-dummy-cli ${D}${bindir}/azure-iot-dummy-cli
+}
+```
+
+### 🧠 What is DEPENDS vs. RDEPENDS?
+
+| Variable   | Meaning |
+|------------|---------|
+| `DEPENDS`  | Build-time dependency: the SDK or library must be built before compiling your recipe |
+| `RDEPENDS` | Runtime dependency: the final image must include this package so your app works |
+
+In our case, we needed them, because the recipe links dynamically to `azure-iot-sdk-c`, and that package is explicitly added to the image via `IMAGE_INSTALL`.
+
+
+### CMake integration:
+
+Have a look at the `CMakeLists.txt` file, not all projects use CMake files that are compatible with Yocto. In our case, we use the following:
+
+```cmake
+find_package(azure_iot_sdks REQUIRED)
+target_link_libraries(azure-iot-dummy iothub_client uamqp)
+```
+
+This ensures correct linking. Headers are found using pkg-config and the Yocto sysroot paths.
+
+---
+
+## 🧪 Step 5: Add to the Image
+
+In `kas.yml` under `local_conf_header`, extend the `IMAGE_INSTALL` variable to include your app and the Azure IoT SDK:
 
 ```yaml
-local_conf_header:
-  meta-myproject: |
-    IMAGE_FSTYPES += "wic.bz2"
-    ENABLE_UART = "1"
-    IMAGE_INSTALL:append = " hello oldstyle"
+IMAGE_INSTALL:append = " azure-iot-dummy-cli azure-iot-sdk-c"
 ```
 
-This section **injects text** into `local.conf` under a named header block.
-
-> It’s equivalent to editing `local.conf`, but now **version-controlled** and **reproducible**.
-
-Here:
-- We add a `.wic.bz2` image output
-- Enable UART for serial console debugging
-- Install the `hello` and `oldstyle` packages
+This:
+- Installs your app
+- Ensures required shared libraries are in the rootfs
 
 ---
 
-### 🧪 Tips and Best Practices
+## 🔐 Optional: Enable Console Login for Testing
 
-- Each layer **must** be explicitly listed with its relative path
-- Use **separate folders** for each remote repo (don't clone manually!)
-- Use `branch` to pin to a branch (e.g., `dunfell`, `kirkstone`)
-- Optionally use `commit:` or `tag:` to lock versions even harder
-- Use `local_conf_header` for small, project-specific tweaks
-
----
-
-### 📌 Example: Locking a repo to a tag
+In `kas.yml`:
 
 ```yaml
-repos:
-  poky:
-    url: "https://git.yoctoproject.org/poky"
-    tag: "yocto-3.1.24"
-    layers:
-      meta:
-      meta-poky:
+EXTRA_IMAGE_FEATURES += "debug-tweaks"
 ```
 
-This makes your build even more reproducible — you’ll always build the exact same thing.
+This allows:
+- Root login without password on serial console
+- Bash history and easier development
 
----
+> ⚠️ Never use this in production.
 
-### ✅ Summary
-
-| Section | Purpose |
-|---------|---------|
-| `header` | kas version declaration |
-| `machine` | Target hardware (e.g., Raspberry Pi) |
-| `target` | The image recipe (e.g., core-image-minimal) |
-| `repos` | All Git-based or local repositories with metadata |
-| `layers` | List of included Yocto layers within each repo |
-| `local_conf_header` | Injects configuration into local.conf dynamically |
-
----
-
-By learning and structuring `kas.yml` well, you make your Yocto project **predictable**, **portable**, and **CI-friendly**.
-
----
-
-## 🚀 Step 4: Build the Image
+## Run the app:
+After building the image, boot it on your device. You can use the serial console to access the device.
 
 ```bash
-kas build kas.yml
+azure-iot-dummy-cli "<your_connection_string>"
 ```
+> Replace the placeholders with your actual Azure IoT Hub connection string. You can find the connection string in the Azure portal under your IoT Hub's "IoT devices" section. Select your device and copy the "Connection string (primary key)" value.
 
-What this does:
-- Clones all Git repos using the correct branch/tag
-- Applies `local.conf` fragment
-- Configures `bblayers.conf`
-- Runs BitBake
-
-The result is **exactly the same** as what we built manually — but now fully automated.
+> ⚠️ Make sure that the date and time are set correctly on your device. If the date is not set, the connection to Azure IoT Hub will fail.
 
 ---
 
-## 🧪 kas shell: Development Environment
+## ✅ Result
 
-Run:
-
-```bash
-kas shell kas.yml
-```
-
-This drops you into a fully configured BitBake environment — just like sourcing `oe-init-build-env`.
-
-From there you can:
-
-```bash
-bitbake hello
-bitbake oldstyle
-bitbake core-image-minimal -c clean
-```
-
-> This is great for iterative testing, patching, or debugging.
+You now have:
+- A real C++ app integrated with the Azure IoT SDK
+- A fully automated build that includes the SDK and app
+- Insight into real-world Yocto development with external layers
 
 ---
 
-## 🧠 Summary of What You Learned
-
-| Concept | Value |
-|--------|-------|
-| kas | Declarative, reproducible build config for Yocto |
-| kas.yml | Defines layers, machine, image, and local.conf |
-| repo vs kas | kas is Yocto-aware, simpler for embedded teams |
-| kas shell | Quick way to jump into BitBake shell |
-| Project structure | Cleaned up, maintainable, and shareable |
-
----
-
-In the next part, we’ll add a tiny IoT application using the **Azure IoT SDK** to our image.
+In the next part, we’ll learn how to create custom image(s) and how to build them with a restructured kas setup.
 
 → Continue to: [kata_part_6.md](kata_part_6.md)

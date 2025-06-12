@@ -1,235 +1,218 @@
-# 🧩 Kata Part 8: Patching the Source of a Recipe Using `devtool`
+# 🛡️ Kata Part 8: Patching a Kernel CVE
 
-In this kata, we learn how to apply a patch to the source of an existing Yocto recipe using the `devtool` utility — the preferred way for developers to quickly iterate on and extend upstream recipes without duplicating or breaking them.
-
----
-
-## 🎯 Goals of This Part
-
-- Understand the concept of patching recipes in Yocto
-- Learn how to use `devtool` to modify, test, and finalize changes
-- Understand the purpose of `.bbappend` files and Git-style patches
-- Integrate the patched recipe into our custom layer
+In this kata, we learn how to detect, investigate, and patch a known Linux kernel vulnerability (CVE) using Yocto best practices. You’ll use the `cve-check` tool to identify vulnerabilities, locate the correct upstream patch, and then integrate it into your custom layer via a `.bbappend`.
 
 ---
 
-## 🧠 Background: Why Patching Matters
+## 🎯 Goals
 
-Patching is essential in embedded development:
-- Vendors ship upstream packages — but you need to fix or extend them
-- You don’t want to fork the whole recipe (maintenance nightmare)
-- Yocto supports patches as **first-class citizens** through its metadata system
-
-Patch files are typically stored under your custom layer and referenced from a `.bbappend` file, which "extends" the original recipe without modifying it.
-
----
-
-## 🧰 Setup: Example Layer and Recipe
-
-We integrate a new public layer:
-
-```
-https://github.com/franzzintgraf/meta-yocto-examples
-```
-
-It contains a simple recipe:
-```
-recipes-example/hello-world-cpp/hello-world-cpp_0.1.bb
-```
-
-This is a small C++ program that prints a message. Perfect for learning how to patch.
+- Run Yocto's `cve-check` tool to detect known vulnerabilities
+- Investigate a real CVE affecting your current kernel
+- Find and verify the upstream patch in the correct branch
+- Apply the patch using `.bbappend` in your custom layer
+- Understand the structure and workflow behind CVE mitigation in Yocto
 
 ---
 
-## 🧱 Step-by-Step Guide to Patching with `devtool`
+## 🛠️ Step 1: Enable `cve-check` in a kas Overlay
 
-### 🔹 Step 1: Add the Layer
+Yocto supports CVE scanning via the `cve-check` class. We'll enable it using a `kas` overlay so it's modular and clean.
 
-In your `kas.yml`:
+1. Create `kas/features/cve-check.yml`:
 
 ```yaml
-  meta-yocto-examples:
-    url: "https://github.com/franzzintgraf/meta-yocto-examples.git"
-    branch: "dunfell"
-    layers:
-      .:
+header:
+  version: 18
+
+local_conf_header:
+  cve-check: |
+    INHERIT += "cve-check"
 ```
 
-You can now confirm the recipe is available inside the bitbake shell:
+2. Build with CVE checking enabled:
 
 ```bash
-bitbake -s | grep hello-world-cpp
+kas build kas.yml:kas/features/cve-check.yml:kas/image/dev.yml:kas/machine/rpi4.yml
 ```
+
+3. After the build, inspect the CVE report:
+
+```bash
+tmp/deploy/images/raspberrypi4/*.cve
+```
+
+This file lists all known CVEs that match the built package versions. You’ll find columns like package, CVE ID, status, severity, and description.
 
 ---
 
-### 🔹 Step 2: Start Modifying with `devtool`
+## 🔍 Step 2: Investigate a CVE — CVE-2021-3640
+
+Let’s focus on `CVE-2021-3640`, which affects Bluetooth SCO sockets in the Linux kernel.
+
+### ✅ Check Your Kernel Version
+
+Boot your device and run:
 
 ```bash
-devtool modify hello-world-cpp
+uname -a
 ```
 
-This creates:
-- A local source tree under: `build/workspace/sources/hello-world-cpp`
-- A bbappend in the `workspace` layer
-- BitBake will now build from your local modified version using devtool
+Or from BitBake:
+
+```bash
+bitbake -e virtual/kernel | grep ^LINUX_VERSION
+```
+
+Assume you’re running version 5.4.72 — a common stable version used by Raspberry Pi builds.
 
 ---
 
-### 🔹 Step 3: Make Your Changes
+## 📥 Step 3: Find the Correct Patch in the Kernel Repository
 
-Edit in the local source tree the `main.cpp` and change the output text.
+Start by looking up the CVE on the NVD:
 
----
+- [CVE-2021-3640](https://nvd.nist.gov/vuln/detail/CVE-2021-3640)
 
-### 🔹 Step 4: Build the Patched Version
+From there, we identify the **original upstream fix**:
 
-```bash
-devtool build hello-world-cpp
-```
+- Commit in Linus’ mainline tree:
+  - https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/net/bluetooth/sco.c?id=99c23da0eed4fd20cae8243f2b51e10e66aa0951
 
-This builds the local, modified source.
+This fix was later **backported into the official stable `linux-5.4.y` tree**:
+- https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/commit/?h=linux-5.4.y&id=d416020f1a9cc5f903ae66649b2c56d9ad5256ab
 
----
+However — and this is crucial — our Yocto image (using `meta-raspberrypi`) does **not** build from the official `linux-5.4.y` tree.
 
-### 🔹 Step 5: Test It on Your Device
+### 🧠 Instead: Our Build Uses the Raspberry Pi Foundation Kernel
 
-```bash
-devtool deploy-target hello-world-cpp root@<ip-address>
-```
-
-This copies the built binary to `/usr/bin/` on your target device.
-You can now SSH into your device and run the modified program:
+You can confirm this with:
 
 ```bash
-ssh root@<ip-address>
-hello-world-cpp
+bitbake -e virtual/kernel | grep ^SRC_URI=
+bitbake -e virtual/kernel | grep ^SRCREV=
 ```
-You should see the new message printed.
 
-After verifying the changes, you can remove the binary from the target device:
+This typically shows:
+
+```
+SRC_URI = "git://github.com/raspberrypi/linux.git;name=machine;branch=rpi-5.4.y ..."
+SRCREV = "<commit>"
+```
+
+This means you are using:
+- The **Raspberry Pi Foundation fork of Linux**
+- Which may have different file paths, added patches, or altered subsystem logic
+
+### ✅ Best Practice: Use the Patch from the Kernel Source You Actually Use
+
+Therefore, search for the patch (or equivalent logic) in the RPi kernel tree:
+- https://github.com/raspberrypi/linux/commits/rpi-5.4.y
+
+Use the git search to find commits matching the upstream commit content. Often, the mainline commit ID will be included in the commit message, so you can search for that too.
+
+E.g. use this git command:
 
 ```bash
-devtool undeploy-target hello-world-cpp root@<ip-address>
-```
-
-This will remove the binary from `/usr/bin/` on your target device.
-
----
-
-### 🔹 Step 6: Commit the Changes
-
-Go into the workspace source tree:
-
-```bash
-cd build/workspace/sources/hello-world-cpp
-git add .
-git commit -m "Change greeting message for the yocto kata"
-```
-
-Only committed changes are turned into patch files.
-
----
-
-### 🔹 Step 7: Finalize the Patch
-
-```bash
-cd build
-devtool finish hello-world-cpp ../meta-myproject
-```
-
-This does several things:
-- Generates a `0001-<change-message>.patch` in `meta-myproject/recipes-example/hello-world-cpp/hello-world-cpp/`
-- Creates a `.bbappend` file with:
-
-```bitbake
-FILESEXTRAPATHS_prepend := "${THISDIR}/${PN}:"
-SRC_URI += "file://0001-<change-message>.patch"
-```
-
----
-
-### 🔹 Step 8: Add Recipe to Image
-
-In `meta-myproject/recipes-core/images/myproject-image-dev.bb`, add:
-
-```conf
-hello-world-cpp \
-```
-
-to the `IMAGE_INSTALL` variable.
-
-Then rebuild:
-
-```bash
-kas build kas.yml:kas/image/dev.yml:kas/machine/rpi4.yml
-``` 
-
----
-
-## 🧠 What is a `.bbappend`?
-
-A `.bbappend` is a metadata extension to an existing recipe. It allows you to:
-- Add patches
-- Append steps to install/configure
-- Add extra dependencies
-- Change variables like `SRC_URI` or `EXTRA_OECONF`
-
-The filename must match the base recipe, e.g.:
-
-```
-hello-world-cpp_0.1.bbappend
+git log --grep="CVE-2021-3640" --oneline
 ```
 
 or
 
+```bash
+git log --grep="99c23da0eed4fd20cae8243f2b51e10e66aa0951" --oneline
 ```
-hello-world-cpp_%.bbappend
+
+If the patch exists there, use that version.  
+If it does not, and the upstream patch applies cleanly — you may proceed, but be sure to test it thoroughly on the device.
+
+> 📌 Summary: Always match your patch source to the actual kernel tree in use. Don’t assume upstream stable = your build base.
+
+> In our case, the Raspberry Pi Foundation kernel does not have the patch, so we will use the upstream stable version.
+
+---
+
+## 📂 Step 4: Download and Organize the Patch
+
+Save the raw patch file from:
+
+```
+https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/patch/?id=d416020f1a9cc5f903ae66649b2c56d9ad5256ab
 ```
 
-where the `%` wildcard matches any version.
+Place it into your custom layer:
+
+```bash
+meta-myproject/
+└── recipes-kernel/
+    └── linux/
+        └── files/
+            └── cve-2021-3640.patch
+```
+
+If the patch would contain multiple files, make sure to organize them in an alphabetical order. This is important for the `do_patch` task to apply them correctly. Common is to prefix the filenames with a number, e.g., `0001-`, `0002-`, etc.
 
 ---
 
-## 🧠 What is a `0001-*.patch`?
+## 🧩 Step 5: Create the `.bbappend` File
 
-This is a **Git-format patch** created from your commit by `git format-patch`.
+Create the file:  
+`meta-myproject/recipes-kernel/linux/linux-raspberrypi_5.4.bbappend`
 
-The number (0001, 0002, ...) indicates patch order. This is the standard format in:
-- Linux kernel development
-- Yocto/OpenEmbedded layers
-- Upstream mailing lists
+Contents:
 
-The patch includes metadata:
-- Commit message
-- Author
-- Date
-- Code diff
+```bitbake
+FILESEXTRAPATHS_prepend := "${THISDIR}/files:"
 
----
+SRC_URI += "file://cve-2021-3640.patch"
+```
 
-## ✅ Summary
-
-| Step                          | Purpose                                         |
-|-------------------------------|-------------------------------------------------|
-| `devtool modify`              | Creates a local editable copy of the recipe     |
-| Edit + commit                 | Apply and track your changes                    |
-| `devtool build`               | Build with changes locally                      |
-| `devtool deploy-target`       | Quickly test on target without rebuilding image |
-| `devtool finish`              | Turn changes into layer-tracked patch + bbappend |
-| `devtool reset`               | Clean up and go back to upstream                |
+This tells BitBake to:
+- Look in `files/` for additional content
+- Include your patch in the `do_patch` phase of the kernel build
 
 ---
 
-## 📌 You’ve Learned
+## 🧪 Step 6: Rebuild the Kernel and Image
 
-- How to patch a Yocto recipe cleanly and correctly
-- Why `.bbappend` files are the backbone of recipe overrides
-- How to use `devtool` to accelerate development
-- How to version-control patches in your own layer
+1. Clean the kernel build to ensure your patch is applied cleanly:
+
+```bash
+bitbake -c clean virtual/kernel
+```
+
+2. Rebuild:
+
+```bash
+bitbake virtual/kernel
+```
+
+3. Rebuild your image to include the updated kernel:
+
+```bash
+kas build kas.yml:kas/features/cve-check.yml:kas/image/dev.yml:kas/machine/rpi4.yml
+```
+
+After that you can verify again the CVE report where the CVE should be marked as patched.
 
 ---
 
-In the next part, we’ll learn how to list known CVEs and create a patch for one.
+## 🔐 Summary
 
-→ Continue to: [kata_part_9.md](kata_part_9.md)
+| Step | What You Did |
+|------|--------------|
+| `cve-check` | Scanned your build for known vulnerabilities |
+| CVE selection | Picked CVE-2021-3640 affecting your kernel |
+| Patch sourcing | Verified upstream and backported patch in linux-5.4.y |
+| Integration | Used `.bbappend` to cleanly inject the patch |
+| Validation | Rebuilt and checked the patched image |
+
+---
+
+## 🧠 What You Learned
+
+- How to detect and trace CVEs relevant to your build
+- How to verify whether a CVE is fixed in your current kernel
+- How to fetch a clean upstream patch from the stable branch
+- How to apply patches using `.bbappend`
+
+---

@@ -246,7 +246,6 @@ Hello from Yocto!
 ---
 
 In the next parts, we’ll:
-- Add another recipe using deprecated syntax for migration testing
 - Learn how to manage reproducible builds using `kas`
 
 → Continue to: [kata_part_4.md](kata_part_4.md)

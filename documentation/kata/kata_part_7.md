@@ -1,248 +1,235 @@
-# ⚙️ Kata Part 7: Creating Custom Yocto Images and Restructuring kas Configuration
+# 🧩 Kata Part 7: Patching the Source of a Recipe Using `devtool`
 
-In this part of the kata, we evolve from appending packages into `local.conf` toward defining **production-grade Yocto image recipes** and a **flexible `kas` overlay structure**. This step is essential for turning your Yocto build setup into a scalable, maintainable, and CI-ready project.
-
----
-
-## 🎯 Goals of This Phase
-
-- Learn the concept and purpose of Yocto image recipes
-- Define separate dev and production images using best practices
-- Remove `IMAGE_INSTALL` logic from `local.conf`
-- Implement a clean, scalable kas overlay configuration system
+In this kata, we learn how to apply a patch to the source of an existing Yocto recipe using the `devtool` utility — the preferred way for developers to quickly iterate on and extend upstream recipes without duplicating or breaking them.
 
 ---
 
-## 🧠 What Is a Yocto Image Recipe?
+## 🎯 Goals of This Part
 
-A Yocto **image recipe** (`*.bb`) defines what gets installed into the **root filesystem** of a Linux image.
+- Understand the concept of patching recipes in Yocto
+- Learn how to use `devtool` to modify, test, and finalize changes
+- Understand the purpose of `.bbappend` files and Git-style patches
+- Integrate the patched recipe into our custom layer
 
-It controls:
+---
 
-- Which packages are installed (`IMAGE_INSTALL`)
-- What system features are enabled (`IMAGE_FEATURES`)
-- The overall composition of the system rootfs
+## 🧠 Background: Why Patching Matters
 
-But importantly, it does **not** dictate how the hardware boots — that’s the job of the **machine configuration** (e.g., `meta-raspberrypi`).
+Patching is essential in embedded development:
+- Vendors ship upstream packages — but you need to fix or extend them
+- You don’t want to fork the whole recipe (maintenance nightmare)
+- Yocto supports patches as **first-class citizens** through its metadata system
 
-Image recipes typically inherit:
+Patch files are typically stored under your custom layer and referenced from a `.bbappend` file, which "extends" the original recipe without modifying it.
+
+---
+
+## 🧰 Setup: Example Layer and Recipe
+
+We integrate a new public layer:
+
+```
+https://github.com/franzzintgraf/meta-yocto-examples
+```
+
+It contains a simple recipe:
+```
+recipes-example/hello-world-cpp/hello-world-cpp_0.1.bb
+```
+
+This is a small C++ program that prints a message. Perfect for learning how to patch.
+
+---
+
+## 🧱 Step-by-Step Guide to Patching with `devtool`
+
+### 🔹 Step 1: Add the Layer
+
+In your `kas.yml`:
+
+```yaml
+  meta-yocto-examples:
+    url: "https://github.com/franzzintgraf/meta-yocto-examples.git"
+    branch: "dunfell"
+    layers:
+      .:
+```
+
+You can now confirm the recipe is available inside the bitbake shell:
+
+```bash
+bitbake -s | grep hello-world-cpp
+```
+
+---
+
+### 🔹 Step 2: Start Modifying with `devtool`
+
+```bash
+devtool modify hello-world-cpp
+```
+
+This creates:
+- A local source tree under: `build/workspace/sources/hello-world-cpp`
+- A bbappend in the `workspace` layer
+- BitBake will now build from your local modified version using devtool
+
+---
+
+### 🔹 Step 3: Make Your Changes
+
+Edit in the local source tree the `main.cpp` and change the output text.
+
+---
+
+### 🔹 Step 4: Build the Patched Version
+
+```bash
+devtool build hello-world-cpp
+```
+
+This builds the local, modified source.
+
+---
+
+### 🔹 Step 5: Test It on Your Device
+
+```bash
+devtool deploy-target hello-world-cpp root@<ip-address>
+```
+
+This copies the built binary to `/usr/bin/` on your target device.
+You can now SSH into your device and run the modified program:
+
+```bash
+ssh root@<ip-address>
+hello-world-cpp
+```
+You should see the new message printed.
+
+After verifying the changes, you can remove the binary from the target device:
+
+```bash
+devtool undeploy-target hello-world-cpp root@<ip-address>
+```
+
+This will remove the binary from `/usr/bin/` on your target device.
+
+---
+
+### 🔹 Step 6: Commit the Changes
+
+Go into the workspace source tree:
+
+```bash
+cd build/workspace/sources/hello-world-cpp
+git add .
+git commit -m "Change greeting message for the yocto kata"
+```
+
+Only committed changes are turned into patch files.
+
+---
+
+### 🔹 Step 7: Finalize the Patch
+
+```bash
+cd build
+devtool finish hello-world-cpp ../meta-myproject
+```
+
+This does several things:
+- Generates a `0001-<change-message>.patch` in `meta-myproject/recipes-example/hello-world-cpp/hello-world-cpp/`
+- Creates a `.bbappend` file with:
 
 ```bitbake
-inherit core-image
-```
-
-This brings in all the required functionality for assembling and packaging a rootfs image.
-
----
-
-## ✅ Best Practices for Image Recipes
-
-| Practice                          | Reason |
-|----------------------------------|--------|
-| Put image recipes in `recipes-core/images/` | Yocto community convention |
-| Inherit `core-image`             | Simplifies image creation |
-| Avoid `local.conf` for packages  | Keeps configuration clean, reproducible |
-| Separate dev/prod images         | Different needs: debug vs. secure/minimal |
-| Use `IMAGE_FEATURES` appropriately | Enables SSH, root login, etc. |
-
----
-
-## 🧱 Creating Our Own Images
-
-We define two image recipes in our `meta-myproject` layer:
-
-### 📄 `myproject-image-dev.bb`
-
-```bitbake
-SUMMARY = "MyProject Development Image"
-LICENSE = "MIT"
-
-inherit core-image
-
-IMAGE_FEATURES += "debug-tweaks ssh-server-dropbear"
-
-IMAGE_INSTALL += " \
-    azure-iot-sdk-c \
-    hello \
-    oldstyle \
-    azure-iot-dummy-cli \
-"
-```
-
-This development image:
-- Enables root login (`debug-tweaks`)
-- Includes SSH server (`dropbear`)
-- Adds testing/demo apps
-
----
-
-### 📄 `myproject-image-prod.bb`
-
-```bitbake
-SUMMARY = "MyProject Production Image"
-LICENSE = "MIT"
-
-inherit core-image
-
-IMAGE_INSTALL += " \
-    azure-iot-sdk-c \
-    azure-iot-dummy-cli \
-"
-```
-
-The production image:
-- Removes root login access (no `debug-tweaks`)
-- Strips away extra dev packages
-- Keeps footprint smaller
-
----
-
-## 🔄 Transitioning from `local.conf` to Image Recipes
-
-Previously, `kas.yml` contained logic like:
-
-```yaml
-local_conf_header:
-  meta-myproject: |
-    IMAGE_INSTALL:append = " hello oldstyle azure-iot-dummy-cpp-simple azure-iot-sdk-c"
-    IMAGE_FEATURES += "debug-tweaks ssh-server-dropbear"
-```
-
-We moved all of this into the image recipes to:
-- Improve readability
-- Prevent accidental changes to dev/prod environments
-- Make the image self-contained and reusable across machines
-
----
-
-## 🧰 kas Configuration: The Scalable Way
-
-To support multiple images and boards without hardcoding, we restructured the `kas` setup into a layered overlay system:
-
-### 📁 Directory Layout
-
-```
-kas/
-├── image/
-│   ├── dev.yml
-│   └── prod.yml
-├── machine/
-│   ├── rpi3.yml
-│   └── rpi4.yml
-kas.yml
+FILESEXTRAPATHS_prepend := "${THISDIR}/${PN}:"
+SRC_URI += "file://0001-<change-message>.patch"
 ```
 
 ---
 
-### 📄 `kas.yml` (base config)
+### 🔹 Step 8: Add Recipe to Image
 
-This contains:
-- The repo/layer definitions
-- No image or machine hardcoded
+In `meta-myproject/recipes-core/images/myproject-image-dev.bb`, add:
 
-```yaml
-repos:
-  poky: ...
-  meta-myproject: ...
-  meta-raspberrypi: ...
+```conf
+hello-world-cpp \
 ```
 
----
+to the `IMAGE_INSTALL` variable.
 
-### 📄 `kas/image/dev.yml`
-
-```yaml
-header:
-  version: 18
-
-target: myproject-image-dev
-
-local_conf_header:
-  dev_enable_uart: |
-    ENABLE_UART = "1"
-```
-
----
-
-### 📄 `kas/image/prod.yml`
-
-```yaml
-header:
-  version: 18
-
-target: myproject-image-prod
-
-local_conf_header:
-  prod_disable_uart: |
-    ENABLE_UART = "0"
-```
-
----
-
-### 📄 `kas/machine/rpi3.yml`
-
-We can easily add a new machine overlay for the Raspberry Pi 3:
-```yaml
-header:
-  version: 18
-
-machine: raspberrypi3
-
-local_conf_header:
-  rpi4_defaults: |
-    IMAGE_FSTYPES += "wic.bz2"
-    ENABLE_UART ??= "0"
-```
-
-### 📄 `kas/machine/rpi4.yml`
-
-```yaml
-header:
-  version: 18
-
-machine: raspberrypi4
-
-local_conf_header:
-  rpi4_defaults: |
-    IMAGE_FSTYPES += "wic.bz2"
-    ENABLE_UART ??= "0"
-```
-
-> The `??=` syntax sets a **default** that can be overridden by the image overlays — this keeps machine and image concerns cleanly separated.
-
----
-
-## ✅ Build Examples
-
-`Kas` supports building any combination of image and machine using an **overlay** syntax by specifiying the overlay files in the command line separated by `:`.
+Then rebuild:
 
 ```bash
 kas build kas.yml:kas/image/dev.yml:kas/machine/rpi4.yml
-kas build kas.yml:kas/image/prod.yml:kas/machine/rpi3.yml
+``` 
+
+---
+
+## 🧠 What is a `.bbappend`?
+
+A `.bbappend` is a metadata extension to an existing recipe. It allows you to:
+- Add patches
+- Append steps to install/configure
+- Add extra dependencies
+- Change variables like `SRC_URI` or `EXTRA_OECONF`
+
+The filename must match the base recipe, e.g.:
+
+```
+hello-world-cpp_0.1.bbappend
 ```
 
-This lets you build any image/machine combo, without editing the `kas.yml` file — ideal for CI automation or multi-target builds.
+or
+
+```
+hello-world-cpp_%.bbappend
+```
+
+where the `%` wildcard matches any version.
 
 ---
 
-## 🧠 Takeaways
+## 🧠 What is a `0001-*.patch`?
 
-- **Images define what’s in the rootfs** — and should not touch machine-specific settings
-- **Machine overlays define hardware config** — and should be overridable by the image if needed
-- **kas overlays scale** — enabling image, machine, and environment separation
-- **`??=` is key** — it lets machines provide defaults and images override them safely
+This is a **Git-format patch** created from your commit by `git format-patch`.
+
+The number (0001, 0002, ...) indicates patch order. This is the standard format in:
+- Linux kernel development
+- Yocto/OpenEmbedded layers
+- Upstream mailing lists
+
+The patch includes metadata:
+- Commit message
+- Author
+- Date
+- Code diff
 
 ---
 
-## ✅ Result
+## ✅ Summary
 
-You now have:
-- A dev image for local testing with debugging features
-- A production image for release with minimal footprint
-- A clean, modular kas config layout
+| Step                          | Purpose                                         |
+|-------------------------------|-------------------------------------------------|
+| `devtool modify`              | Creates a local editable copy of the recipe     |
+| Edit + commit                 | Apply and track your changes                    |
+| `devtool build`               | Build with changes locally                      |
+| `devtool deploy-target`       | Quickly test on target without rebuilding image |
+| `devtool finish`              | Turn changes into layer-tracked patch + bbappend |
+| `devtool reset`               | Clean up and go back to upstream                |
 
 ---
 
-In the next part, we’ll learn how to patch a component using the `devtool`.
+## 📌 You’ve Learned
+
+- How to patch a Yocto recipe cleanly and correctly
+- Why `.bbappend` files are the backbone of recipe overrides
+- How to use `devtool` to accelerate development
+- How to version-control patches in your own layer
+
+---
+
+In the next part, we’ll learn how to list known CVEs and create a patch for one.
 
 → Continue to: [kata_part_8.md](kata_part_8.md)

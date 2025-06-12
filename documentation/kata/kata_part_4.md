@@ -1,179 +1,358 @@
-# 🧠 Yocto Kata – Part 4: Creating a Legacy Recipe to Prepare for Future Migrations
+# 🧠 Yocto Kata – Part 4: Restructuring the Project Using `kas` for Reproducibility and Maintainability
 
-In Part 3, we created our own custom layer and added a simple `hello` recipe. Now in Part 4, we’ll take a very strategic step:
+In previous parts, we manually cloned repositories, configured `local.conf` and `bblayers.conf`, and invoked `bitbake` directly to build our image. That worked — but it’s **not scalable**.
 
-> Create a **recipe using deprecated BitBake syntax**, so we can **test migration paths** later when upgrading to a newer Yocto release.
-
-This may seem odd — creating something that will break in the future — but it’s one of the best ways to **future-proof your workflow**.
+Now, in **Part 4**, we’ll restructure the project to use **`kas`**, a powerful configuration tool designed to automate and manage Yocto builds reproducibly.
 
 ---
 
-## 🎯 Goal of This Step
+## 🎯 Why Restructure with kas?
 
-- Understand how Yocto evolves and why old syntax breaks
-- Write a recipe that intentionally uses **outdated or discouraged BitBake constructs**
-- Use this recipe in your project as a **migration test case**
-- Lay the foundation for migration tools or manual upgrades later
+Here’s the issue with the approach we used so far:
 
----
+| Manual Step | Problem |
+|-------------|---------|
+| Cloning layers manually | Tedious, error-prone, inconsistent |
+| Editing config files | Can drift across environments |
+| Sharing setup | Difficult — others must repeat all steps |
+| Reproducing builds | Nearly impossible without a fixed method |
+| Upgrading versions | Requires manual work and careful coordination |
 
-## 🔄 Why Yocto Versions Matter
+> The more layers and customization you add, the worse it gets.
 
-The Yocto Project follows a regular release cycle:
-
-| Release Name | Version | Release Type |
-|--------------|---------|--------------|
-| Dunfell      | 3.1     | LTS          |
-| Hardknott    | 3.3     | Regular      |
-| Kirkstone    | 4.0     | LTS          |
-| Langdale     | 4.1     | Regular      |
-| Scarthgap    | 5.0     | LTS          |
-
-> Each version introduces new features, bug fixes, and **syntax changes**. Older constructs are deprecated and then removed.
-
-If you stick with old syntax, **your build will eventually break** when moving to newer Yocto versions.
+This is where `kas` shines.
 
 ---
 
-## 🧩 Versioning in Yocto and Layers
+## 🧰 What Is `kas`?
 
-### 🔖 Layer Branching Strategy
+**`kas`** is a tool that provides a YAML-based configuration for:
 
-Each Yocto release has its own **Git branch** in official layers:
+- Cloning and pinning layer repositories
+- Defining the machine, image, distro
+- Applying config fragments (like `local.conf`)
+- Launching builds and shells
 
-- `poky` has a `dunfell`, `kirkstone`, etc.
-- `meta-raspberrypi` has the same
+It simplifies collaboration, reproducibility, CI/CD integration, and upgrades.
 
-This keeps everything aligned with compatible versions.
+---
 
-> 💡 Best Practice:
-> When using Yocto, always ensure **all your layers use the same branch/release**.
+## 🔄 Comparison: kas vs repo
 
-If you use:
-```bash
-git clone -b dunfell ...
+Some teams use **`repo`**, an Android-derived tool for managing Git checkouts. While `repo` is great for large mono-repos, it doesn’t understand Yocto.
+
+### 🔍 Comparison Table
+
+| Feature | `kas` | `repo` |
+|--------|-------|--------|
+| Yocto-native concepts (layers, conf, images) | ✅ Yes | ❌ No |
+| Declarative build config (in YAML) | ✅ Yes | ❌ No |
+| Requires scripting | ❌ Minimal | ✅ Needed |
+| Shared by file | ✅ Single `.yml` file | ✅ Multiple manifest XMLs |
+| Used in Yocto industry projects | ✅ Widely | ✅ In some complex projects |
+| Easy for CI/CD | ✅ Very | ⚠️ Requires glue code |
+
+> 🧠 Conclusion: `repo` is powerful, but `kas` is **better suited for Yocto-based workflows**.
+
+---
+
+## 🗂️ Project Restructure with kas
+
+Here’s how your project structure evolves:
+
+### 🧱 Old Setup
+
 ```
-for each layer, you’ll ensure they’re version-matched.
-
----
-
-## 🧪 What We'll Do in This Part
-
-Create a recipe called `oldstyle` that:
-- Uses `do_install_append()` (deprecated in newer releases)
-- Uses `INHIBIT_PACKAGE_DEBUG_SPLIT` (no longer recommended)
-- Uses classic `=` variable assignments instead of modern `:` syntax
-
----
-
-## 🛠️ Step-by-Step: Create the `oldstyle` Recipe
-
-### ✅ Step 1: Create Directory
-
-```bash
-cd meta-myproject
-mkdir -p recipes-example/oldstyle/files
+poky/
+├── meta-raspberrypi/
+├── meta-myproject/
+├── rpi-build/
+├── ...
 ```
 
----
+### 🆕 New Setup
 
-### ✍️ Step 2: Create the Script File
-
-```bash
-cat > recipes-example/oldstyle/files/greet.sh << 'EOF'
-#!/bin/sh
-echo "Greetings from the old school Yocto!"
-EOF
-
-chmod +x recipes-example/oldstyle/files/greet.sh
+```
+yocto-kata/
+├── kas.yml
+├── meta-myproject/
+│   └── recipes-example/
+├── .gitignore
+├── build/            # created by kas automatically
 ```
 
+Everything is now **driven by kas.yml**.
+
 ---
 
-### 📄 Step 3: Create the Legacy Recipe
+## 🛠️ Step-by-Step: Create Your kas Project
 
-Create `oldstyle_1.0.bb`:
+### ✅ Step 1: Install kas
 
 ```bash
-nano recipes-example/oldstyle/oldstyle_1.0.bb
+pip3 install kas
 ```
-
-Paste the following:
-
-```bitbake
-SUMMARY = "Old style example recipe with deprecated syntax"
-LICENSE = "MIT"
-LIC_FILES_CHKSUM = "file://${COREBASE}/meta/files/common-licenses/MIT;md5=0835c5f5c6c4d7c8b6e65d106f63529c"
-
-SRC_URI = "file://greet.sh"
-
-S = "${WORKDIR}"
-
-INHIBIT_PACKAGE_DEBUG_SPLIT = "1"
-
-do_install_append() {
-    install -d ${D}${bindir}
-    install -m 0755 ${WORKDIR}/greet.sh ${D}${bindir}/greet
-}
-```
-
-### 🔎 What’s “bad” about this recipe?
-
-| Deprecated Pattern | Explanation |
-|--------------------|-------------|
-| `do_install_append()` | New syntax prefers `python do_install:append()` or anonymous functions |
-| `INHIBIT_PACKAGE_DEBUG_SPLIT` | Discouraged, Yocto prefers keeping debug packages cleanly separated |
-| `=` assignments | Replaced by `:` overrides (e.g., `IMAGE_INSTALL:append = ...`) in newer releases |
 
 ---
 
-## ✅ Step 4: Build and Verify
-
-Rebuild the image:
+### ✅ Step 2: Create the Project Directory
 
 ```bash
-bitbake oldstyle
-bitbake core-image-minimal
+mkdir yocto-rpi-kas
+cd yocto-rpi-kas
+git init
 ```
 
-Boot the image and run:
+Add your `.gitignore`:
 
 ```bash
-/usr/bin/greet
-```
-
-You should see:
-
-```
-Greetings from the old school Yocto!
+echo -e "build/
+downloads/
+sstate-cache/
+tmp/
+*.wic
+*.bz2
+*.bmap" > .gitignore
 ```
 
 ---
 
-## 🧠 Why This Recipe Is Valuable
+### ✅ Step 3: Create kas.yml
 
-This “bad practice” recipe becomes a **canary** — when we later upgrade to:
-- `kirkstone`
-- `scarthgap`
+```yaml
+header:
+  version: 18
+machine: raspberrypi4
+target: core-image-minimal
+build_system: oe
 
-… we can test:
-- What breaks
-- Which migration scripts are triggered
-- How to fix or modernize real-world recipes
+repos:
+  poky:
+    url: "https://git.yoctoproject.org/poky"
+    refspec: "dunfell"
+    layers:
+      meta:
+      meta-poky:
+      meta-yocto-bsp:
+
+  meta-raspberrypi:
+    url: "https://git.yoctoproject.org/meta-raspberrypi"
+    refspec: "dunfell"
+    layers:
+      - .
+
+  meta-myproject:
+    path: "meta-myproject"
+    layers:
+      - .
+
+local_conf_header:
+  meta-myproject: |
+    IMAGE_FSTYPES += "wic.bz2"
+    ENABLE_UART = "1"
+    IMAGE_INSTALL:append = " hello"
+```
+
+## 📄 Deep Dive: Understanding the `kas.yml` File
+
+The `kas.yml` file is the **heart of your Yocto project configuration** when using `kas`. It defines everything kas needs to:
+
+- Fetch and prepare your sources (layers)
+- Configure your build environment
+- Apply specific customizations
+- Trigger builds reproducibly
+
+Let’s break it down **line by line** using our working example.
 
 ---
 
-## 💡 Summary of What You Learned
+### 🧱 Basic Structure
+
+```yaml
+header:
+  version: 18
+machine: raspberrypi4
+target: core-image-minimal
+build_system: oe
+```
+
+| Field | Explanation |
+|-------|-------------|
+| `header.version` | Required kas config version. `18` is used in kas 4.7. |
+| `machine` | Sets the Yocto machine configuration (`raspberrypi4`). Tells BitBake which kernel, bootloader, and settings to use. |
+| `target` | The image recipe you want to build (`core-image-minimal`). |
+| `build_system` | Tells kas what build system to use (`oe` = OpenEmbedded/Yocto). |
+
+---
+
+### 📦 Repos Section
+
+```yaml
+repos:
+  poky:
+    url: "https://git.yoctoproject.org/poky"
+    branch: "dunfell"
+    layers:
+      meta:
+      meta-poky:
+      meta-yocto-bsp:
+```
+
+This defines:
+- A repository (`poky`)
+- Where to clone it from (`url`)
+- Which branch or revision to use (`branch`)
+- Which subdirectories are actual layers (`layers`)
+
+Each repo must list all included layers explicitly.
+
+---
+
+### 🧱 Example: meta-raspberrypi
+
+```yaml
+  meta-raspberrypi:
+    url: "https://git.yoctoproject.org/meta-raspberrypi"
+    branch: "dunfell"
+    layers:
+      .:
+```
+
+This layer is structured differently — the layer lives at the top level of the repo, so we use `.:` as the path.
+
+> Note: `.:` means "use this folder as the layer".
+
+---
+
+### 🧱 Example: meta-myproject (local layer)
+
+```yaml
+  meta-myproject:
+    path: "meta-myproject"
+    layers:
+      .:
+```
+
+- `path`: Points to a **local directory** on disk.
+- `layers`: Again, we use `.:` because the layer is at the top level.
+
+No `url` or `branch` is needed for local layers.
+
+---
+
+### 🧩 Configuration Overrides (local_conf_header)
+
+```yaml
+local_conf_header:
+  meta-myproject: |
+    IMAGE_FSTYPES += "wic.bz2"
+    ENABLE_UART = "1"
+    IMAGE_INSTALL:append = " hello"
+```
+
+This section **injects text** into `local.conf` under a named header block.
+
+> It’s equivalent to editing `local.conf`, but now **version-controlled** and **reproducible**.
+
+Here:
+- We add a `.wic.bz2` image output
+- Enable UART for serial console debugging
+- Install the `hello` package
+
+---
+
+### 🧪 Tips and Best Practices
+
+- Each layer **must** be explicitly listed with its relative path
+- Use **separate folders** for each remote repo (don't clone manually!)
+- Use `branch` to pin to a branch (e.g., `dunfell`, `kirkstone`)
+- Optionally use `commit:` or `tag:` to lock versions even harder
+- Use `local_conf_header` for small, project-specific tweaks
+
+---
+
+### 📌 Example: Locking a repo to a tag
+
+```yaml
+repos:
+  poky:
+    url: "https://git.yoctoproject.org/poky"
+    tag: "yocto-3.1.24"
+    layers:
+      meta:
+      meta-poky:
+```
+
+This makes your build even more reproducible — you’ll always build the exact same thing.
+
+---
+
+### ✅ Summary
+
+| Section | Purpose |
+|---------|---------|
+| `header` | kas version declaration |
+| `machine` | Target hardware (e.g., Raspberry Pi) |
+| `target` | The image recipe (e.g., core-image-minimal) |
+| `repos` | All Git-based or local repositories with metadata |
+| `layers` | List of included Yocto layers within each repo |
+| `local_conf_header` | Injects configuration into local.conf dynamically |
+
+---
+
+By learning and structuring `kas.yml` well, you make your Yocto project **predictable**, **portable**, and **CI-friendly**.
+
+---
+
+## 🚀 Step 4: Build the Image
+
+```bash
+kas build kas.yml
+```
+
+What this does:
+- Clones all Git repos using the correct branch/tag
+- Applies `local.conf` fragment
+- Configures `bblayers.conf`
+- Runs BitBake
+
+The result is **exactly the same** as what we built manually — but now fully automated.
+
+---
+
+## 🧪 kas shell: Development Environment
+
+Run:
+
+```bash
+kas shell kas.yml
+```
+
+This drops you into a fully configured BitBake environment — just like sourcing `oe-init-build-env`.
+
+From there you can:
+
+```bash
+bitbake hello
+bitbake core-image-minimal -c clean
+```
+
+> This is great for iterative testing, patching, or debugging.
+
+---
+
+## 🧠 Summary of What You Learned
 
 | Concept | Value |
 |--------|-------|
-| Yocto versioning | Each release may deprecate syntax |
-| Aligned layer branches | Ensure all layers use the same Yocto branch |
-| Legacy recipes | Create test cases for upgrade validation |
-| Future-proofing | Helps plan clean migrations |
+| kas | Declarative, reproducible build config for Yocto |
+| kas.yml | Defines layers, machine, image, and local.conf |
+| repo vs kas | kas is Yocto-aware, simpler for embedded teams |
+| kas shell | Quick way to jump into BitBake shell |
+| Project structure | Cleaned up, maintainable, and shareable |
 
 ---
 
-In the next part, we’ll restructure your entire project to use **kas** for reproducible builds and portable configuration.
+In the next part, we’ll add a tiny IoT application using the **Azure IoT SDK** to our image.
 
 → Continue to: [kata_part_5.md](kata_part_5.md)
