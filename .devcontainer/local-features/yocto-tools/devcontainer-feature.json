@@ -1,0 +1,10 @@
+{
+  "id": "yocto-tools",
+  "name": "yocto-tools",
+  "description": "Installs tools needed by yocto",
+  "options": {},
+  "installsAfter": [
+    "ghcr.io/devcontainers/features/common-utils",
+    "ghcr.io/devcontainers/features/python"
+  ]
+}
