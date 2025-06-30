@@ -2,7 +2,13 @@
   "id": "yocto-tools",
   "name": "yocto-tools",
   "description": "Installs tools needed by yocto",
-  "options": {},
+  "options": {
+    "version": {
+      "type": "string",
+      "default": "dunfell",
+      "description": "Yocto version to install tools for (e.g., dunfell, scarthgap, etc.)"
+    }
+  },
   "installsAfter": [
     "ghcr.io/devcontainers/features/common-utils",
     "ghcr.io/devcontainers/features/python"

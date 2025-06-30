@@ -2,6 +2,8 @@
   "name": "yocto-kata",
   "image": "mcr.microsoft.com/devcontainers/base:ubuntu-22.04",
   "features": {
-    "./local-features/yocto-tools": {}
+    "./local-features/yocto-tools": {
+      "version": "dunfell"
+    }
   }
 }
