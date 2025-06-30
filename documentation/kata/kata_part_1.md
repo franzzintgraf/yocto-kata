@@ -22,10 +22,12 @@ By the end, you’ll be able to build your own Linux system tailored for your ha
 
 The Yocto Project is **not a Linux distribution** — it is a *set of tools and metadata to build your own Linux distribution*.
 
+➡️ [Official Yocto Project Website](https://www.yoctoproject.org/)  
+
 Key components:
 
-- **BitBake**: The task execution engine. It processes recipes, executes tasks, and handles dependencies.
-- **Poky**: The reference distribution provided by Yocto. It includes BitBake, metadata, and layers.
+- [**BitBake**](https://docs.yoctoproject.org/bitbake/): The task execution engine. It processes recipes, executes tasks, and handles dependencies.  
+- [**Poky**](https://docs.yoctoproject.org/ref-manual/terms.html#term-Poky): The reference distribution provided by Yocto. It includes BitBake, metadata, and layers.  
 - **Metadata**: Layered configuration files and build instructions (called recipes) used to build software.
 
 ### 🔍 Why use Yocto?
@@ -52,6 +54,8 @@ Yocto is complex, but powerful — and mastering it gives you full control over 
 | **BitBake** | The engine that parses recipes and runs tasks |
 | **Poky** | The Yocto reference distribution that includes BitBake and core layers |
 
+For more terminology, see the [Yocto Project Terms](https://docs.yoctoproject.org/ref-manual/terms.html).
+
 ---
 
 ## 🧰 Part 1 Goal: Set Up the Host Environment
@@ -69,33 +73,21 @@ Yocto builds best on:
 - Fedora (32 or newer)
 - Any distro with a modern toolchain and Python 3
 
+> **Note:** The required host OS version depends on the Yocto Project release you are using. For example:
+> - **Dunfell (Yocto 3.1.x):** Officially supports Ubuntu 20.04 LTS and Ubuntu 22.04 LTS.
+> - **Newer Yocto releases (e.g., Kirkstone, Mickledore):** Require Ubuntu 22.04 LTS or newer.
+
 We’ll use Ubuntu/Debian-based commands in this kata.
 
 ---
 
 ## 🛠️ Step-by-Step: Installing Host Dependencies
 
-These packages are required by BitBake and the Yocto toolchain:
+> **Note:** In this kata, we use the **Dunfell (Yocto 3.1.x)** release as our baseline. The package list and requirements below are for Dunfell. In later parts of the kata, we may migrate to a newer Yocto release, which could require updated dependencies or a newer host OS. Always check the documentation for your Yocto version.
 
-```bash
-sudo apt update
-sudo apt install -y \
-  gawk wget git-core diffstat unzip texinfo gcc build-essential chrpath socat \
-  cpio python3 python3-pip python3-pexpect xz-utils debianutils iputils-ping \
-  libsdl1.2-dev xterm curl
-```
+Make sure all the system requirements are installed for Dunfell. [See the official system requirements for Dunfell here](https://docs.yoctoproject.org/3.1.33/ref-manual/ref-system-requirements.html). If you use the provided devcontainer, all dependencies are already set up.
 
-### 💡 Explanation of key packages:
-
-- `gawk`, `wget`, `diffstat`, `unzip`: Basic build tools used in many recipes
-- `texinfo`, `chrpath`: Documentation and path-fixing utilities
-- `socat`, `cpio`: Required by some embedded-specific components
-- `python3-pip`, `python3-pexpect`: Needed for BitBake and optional kas/devtool integration
-- `xz-utils`, `xz`: Used to handle compressed sources
-- `libsdl1.2-dev`, `xterm`: Used by graphical tools or emulators
-- `curl`: Fetching sources from the internet
-
-If you're using a different distro, refer to [Yocto's manual](https://docs.yoctoproject.org) for a full list per OS.
+Remark: In general [Yocto's manual](https://docs.yoctoproject.org/ref-manual/system-requirements.html#supported-linux-distributions) describes very detailed all requirements for a full list per OS.
 
 ---
 
