@@ -98,8 +98,8 @@ pip3 install kas
 ### ✅ Step 2: Create the Project Directory
 
 ```bash
-mkdir yocto-rpi-kas
-cd yocto-rpi-kas
+mkdir yocto-kata
+cd yocto-kata
 git init
 ```
 
@@ -107,12 +107,10 @@ Add your `.gitignore`:
 
 ```bash
 echo -e "build/
-downloads/
-sstate-cache/
-tmp/
-*.wic
-*.bz2
-*.bmap" > .gitignore
+.kas_shell_history
+meta-*/
+!meta-myproject/
+poky/ > .gitignore
 ```
 
 ---
@@ -129,7 +127,7 @@ build_system: oe
 repos:
   poky:
     url: "https://git.yoctoproject.org/poky"
-    refspec: "dunfell"
+    branch: "dunfell"
     layers:
       meta:
       meta-poky:
@@ -137,14 +135,14 @@ repos:
 
   meta-raspberrypi:
     url: "https://git.yoctoproject.org/meta-raspberrypi"
-    refspec: "dunfell"
+    branch: "dunfell"
     layers:
-      - .
+      .:
 
   meta-myproject:
     path: "meta-myproject"
     layers:
-      - .
+      .:
 
 local_conf_header:
   meta-myproject: |
