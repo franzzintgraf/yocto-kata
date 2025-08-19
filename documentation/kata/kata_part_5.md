@@ -101,10 +101,10 @@ SRC_URI = "file://main.cpp \
 
 S = "${WORKDIR}"
 
-inherit cmake pkgconfig
+inherit cmake
 
 DEPENDS = "azure-iot-sdk-c"
-RDEPENDS:${PN} += " azure-iot-sdk-c"
+RDEPENDS:${PN} += "azure-iot-sdk-c"
 
 do_install() {
     install -d ${D}${bindir}
@@ -131,21 +131,21 @@ find_package(azure_iot_sdks REQUIRED)
 target_link_libraries(azure-iot-dummy iothub_client uamqp)
 ```
 
-This ensures correct linking. Headers are found using pkg-config and the Yocto sysroot paths.
+This ensures correct linking.
 
 ---
 
 ## 🧪 Step 5: Add to the Image
 
-In `kas.yml` under `local_conf_header`, extend the `IMAGE_INSTALL` variable to include your app and the Azure IoT SDK:
+In `kas.yml` under `local_conf_header`, extend the `IMAGE_INSTALL` variable to include your app:
 
 ```yaml
-IMAGE_INSTALL:append = " azure-iot-dummy-cli azure-iot-sdk-c"
+IMAGE_INSTALL:append = " azure-iot-dummy-cli"
 ```
 
 This:
 - Installs your app
-- Ensures required shared libraries are in the rootfs
+- It's enough to just include the `azure-iot-dummy-cli` and the required shared libraries (from the Azure IoT SDK) will be pulled in automatically as they are defined in the `RDEPENDS` of the `azure-iot-dummy-cli` recipe.
 
 ---
 

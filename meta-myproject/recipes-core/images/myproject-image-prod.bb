@@ -3,7 +3,6 @@ LICENSE = "MIT"
 
 inherit core-image
 
-IMAGE_INSTALL += " \
-    azure-iot-sdk-c \
+IMAGE_INSTALL += "\
     azure-iot-dummy-cli \
 "

@@ -8,10 +8,10 @@ SRC_URI = "file://main.cpp \
 
 S = "${WORKDIR}"
 
-inherit cmake pkgconfig
+inherit cmake
 
 DEPENDS = "azure-iot-sdk-c"
-RDEPENDS:${PN} += " azure-iot-sdk-c"
+RDEPENDS:${PN} += "azure-iot-sdk-c"
 
 do_install() {
     install -d ${D}${bindir}

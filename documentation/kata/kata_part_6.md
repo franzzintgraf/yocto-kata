@@ -61,7 +61,7 @@ inherit core-image
 
 IMAGE_FEATURES += "debug-tweaks ssh-server-dropbear"
 
-IMAGE_INSTALL += " \
+IMAGE_INSTALL += "\
     azure-iot-sdk-c \
     hello \
     azure-iot-dummy-cli \
@@ -83,7 +83,7 @@ LICENSE = "MIT"
 
 inherit core-image
 
-IMAGE_INSTALL += " \
+IMAGE_INSTALL += "\
     azure-iot-sdk-c \
     azure-iot-dummy-cli \
 "
