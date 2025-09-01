@@ -62,9 +62,9 @@ inherit core-image
 IMAGE_FEATURES += "debug-tweaks ssh-server-dropbear"
 
 IMAGE_INSTALL += "\
-    azure-iot-sdk-c \
     hello \
     azure-iot-dummy-cli \
+    hello-world-cpp \
 "
 ```
 
@@ -84,7 +84,6 @@ LICENSE = "MIT"
 inherit core-image
 
 IMAGE_INSTALL += "\
-    azure-iot-sdk-c \
     azure-iot-dummy-cli \
 "
 ```
@@ -103,8 +102,8 @@ Previously, `kas.yml` contained logic like:
 ```yaml
 local_conf_header:
   meta-myproject: |
-    IMAGE_INSTALL:append = " hello azure-iot-dummy-cpp-simple azure-iot-sdk-c"
-    IMAGE_FEATURES += "debug-tweaks ssh-server-dropbear"
+    IMAGE_INSTALL:append = " hello azure-iot-dummy-cli"
+    IMAGE_FEATURES += "debug-tweaks"
 ```
 
 We moved all of this into the image recipes to:

@@ -154,7 +154,7 @@ This:
 In `kas.yml`:
 
 ```yaml
-EXTRA_IMAGE_FEATURES += "debug-tweaks"
+IMAGE_FEATURES += "debug-tweaks"
 ```
 
 This allows:
