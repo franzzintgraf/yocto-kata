@@ -44,10 +44,9 @@ The kata documents walk you through:
 
 ---
 
-## 🚀 Quick Start (after kata setup)
+## 🚀 Quick Start (inside Devcontainer)
 
 ```bash
-pip3 install kas
 kas build kas.yml:kas/image/dev.yml:kas/machine/rpi4.yml
 ```
 
